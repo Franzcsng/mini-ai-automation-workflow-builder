@@ -1,0 +1,62 @@
+{
+  "id": "test-workflow",
+  "version": "1",
+  "nodes": [
+    {
+      "id": "1",
+      "type": "console.log",
+      "data": {
+        "message": "Hello"
+      }
+    },
+    {
+      "id": "2",
+      "type": "console.log",
+      "data": {
+        "message": "World"
+      }
+    },
+    {
+      "id": "3",
+      "type": "console.log",
+      "data": {
+        "message": "Nice!"
+      }
+    },
+    {
+      "id": "4",
+      "type": "console.log",
+      "data": {
+        "message": "Oh Hello"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "1",
+      "source": "1",
+      "target": "2"
+    },
+    {
+      "id": "2",
+      "source": "1",
+      "target": "3"
+    },
+    {
+      "id": "3",
+      "source": "2",
+      "target": "3"
+    },
+    {
+      "id": "4",
+      "source": "2",
+      "target": "4"
+    },
+    {
+      "id": "5",
+      "source": "3",
+      "target": "4"
+    }
+
+  ]
+}
