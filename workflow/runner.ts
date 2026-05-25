@@ -1,5 +1,5 @@
 import {workflow} from "./types"
-import { NodeType } from "./types"
+import { NodeType, WorkflowContext } from "./types"
 import {nodeRegistry} from './nodeRegistry'
 
 //This is the main function that runs the workflow basing on nodes and edges
@@ -26,12 +26,31 @@ function buildDependencyMap(workflow: workflow){
 }
 
 
-
-
 function isReady(nodeId: string, dependencyMap: Record<string, string[]>, completed: Set<string>) {
   return dependencyMap[nodeId].every(dep => completed.has(dep))
 }
 
+
+function resolvePath(path: string, context: WorkflowContext) {
+    const result = path
+    .split('.')
+    .reduce<any>((acc, key) => acc?.[key], context.results)
+
+    console.log("Resolving:", path, "=>", result)
+
+    return result
+}
+
+
+function resolveInputs(inputs: Record<string, string>, context: WorkflowContext) {
+    const resolvedInputs: Record<string, any> = {}
+
+    for(const key in inputs){
+        resolvedInputs[key] = resolvePath(inputs[key], context)
+    }
+
+    return resolvedInputs
+}
 
 
 export async function runWorkflow(workflow: workflow) {
@@ -39,7 +58,9 @@ export async function runWorkflow(workflow: workflow) {
 
   const dependencyMap = buildDependencyMap(workflow)
   const completed = new Set<string>()
-  const results: Record<string, any> = {}
+  let context: WorkflowContext = {
+    results: {}
+  }
 
   while (completed.size < workflow.nodes.length) {
     let progress = false
@@ -48,7 +69,7 @@ export async function runWorkflow(workflow: workflow) {
       if (completed.has(node.id)) continue
 
       if (!isReady(node.id, dependencyMap, completed)) continue
-
+      
       console.log(`Executing node ${node.id} (${node.type})`)
 
       const handler = nodeRegistry[node.type as NodeType]
@@ -57,20 +78,20 @@ export async function runWorkflow(workflow: workflow) {
         throw new Error(`No handler for ${node.type}`)
       }
 
-      const result = await handler(node)
+      const result = await handler(node, resolveInputs(node.inputs, context))
 
-      results[node.id] = result
+      context.results[node.id] = result
       completed.add(node.id)
 
       progress = true
+
     }
 
-    // safety check (detect deadlocks)
     if (!progress) {
       throw new Error("Workflow stuck — possible circular dependency or missing node")
     }
   }
 
-  console.log("Workflow complete")
-  return results
+  console.log("Workflow complete, here is the results: ", context.results)
+  return context.results
 }
