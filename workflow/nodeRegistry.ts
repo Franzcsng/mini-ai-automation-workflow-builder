@@ -1,12 +1,14 @@
 import {consoleLogNode} from "./nodes/consoleLog"
-import { NodeType } from "./types"
-// export const nodeRegistry: Record<
-//   string,
-//   (node: any) => Promise<any>
-// > = {}
+import {addNode} from "./nodes/addNode"
+import {multiplyNode} from "./nodes/multiplyNode"
+import {constantNode} from "./nodes/constantNode"
+import { NodeType, WorkflowContext} from "./types"
 
-type NodeHandler = (node: any) => Promise<any>
+type NodeHandler = (node: any, resolvedInputs: Record<string, any>) => Promise<any>
 
-export const nodeRegistry:Partial<Record<NodeType, NodeHandler>> = {
-  "console.log": consoleLogNode
+export const nodeRegistry: Partial<Record<NodeType, NodeHandler>> = {
+  "console.log": consoleLogNode,
+  "add.node": addNode,
+  "multiply.node": multiplyNode,
+  "constant.node": constantNode
 }

@@ -8,7 +8,8 @@ export type workflow = {
 export type workflowNode = {
     id: string,
     type: string,
-    data: Record<string, any>
+    data: Record<string, any>,
+    inputs: Record<string, string>
 }
 
 
@@ -18,21 +19,38 @@ export type workflowEdges = {
     target: string
 }
 
-export type WorkflowRunState = {
-  workflowId: string
-  status: "running" | "completed" | "failed"
+// export type WorkflowRunState = {
+//   workflowId: string
+//   status: "running" | "completed" | "failed"
 
-  nodeStates: Record<
-    string,
-    {
-      status: "pending" | "running" | "completed" | "failed"
-      output?: any
-    }
-  >
-}
-
+//   nodeStates: Record<
+//     string,
+//     {
+//       status: "pending" | "running" | "completed" | "failed"
+//       output?: any
+//     }
+//   >
+// }
 
 export type NodeType =
   | "console.log"
-  | "ai.summarize"
-  | "http.request"
+  | "add.node"
+  | "multiply.node"
+  | "constant.node"
+
+
+  export type NodeResult<T =  any> = {
+    nodeId: string
+    success: boolean
+    output: T
+    error?: string
+    meta?: {
+    startedAt: number
+    finishedAt: number
+  }
+}
+
+
+export type WorkflowContext = {
+  results: Record<string, NodeResult>
+}
