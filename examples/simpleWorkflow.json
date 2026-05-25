@@ -6,28 +6,50 @@
       "id": "1",
       "type": "console.log",
       "data": {
-        "message": "Hello"
+       "message": "Starting worflow"
       }
     },
     {
       "id": "2",
-      "type": "console.log",
+      "type": "constant.node",
       "data": {
-        "message": "World"
+       "value": 2
       }
     },
     {
       "id": "3",
-      "type": "console.log",
+      "type": "constant.node",
       "data": {
-        "message": "Nice!"
+        "value": 2
       }
     },
     {
-      "id": "4",
-      "type": "console.log",
+        "id": "4",
+        "type": "constant.node",
+        "data": {
+            "value": 3
+      }
+    },
+    {
+      "id": "5",
+      "type": "add.node",
       "data": {
-        "message": "Oh Hello"
+       "message": "Addition"
+      },
+      "inputs": {
+        "a": "2.output.value",
+        "b": "4.output.value"
+      }
+    },
+     {
+      "id": "6",
+      "type": "multiply.node",
+      "data": {
+       "message": "Multiplication"
+      },
+      "inputs": {
+        "a": "3.output.value",
+        "b": "5.output.value"
       }
     }
   ],
@@ -40,22 +62,32 @@
     {
       "id": "2",
       "source": "1",
-      "target": "3"
+      "target": "4"
     },
     {
       "id": "3",
       "source": "2",
-      "target": "3"
+      "target": "5"
     },
     {
       "id": "4",
-      "source": "2",
-      "target": "4"
+      "source": "4",
+      "target": "5"
     },
     {
       "id": "5",
       "source": "3",
-      "target": "4"
+      "target": "6"
+    },
+    {
+      "id": "6",
+      "source": "5",
+      "target": "6"
+    },
+    {
+      "id": "7",
+      "source": "4",
+      "target": "3"
     }
 
   ]
