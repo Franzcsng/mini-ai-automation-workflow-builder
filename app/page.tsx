@@ -1,10 +1,10 @@
 import Image from "next/image";
 import {Button} from "@/components/ui/button"
-import { runWorkflow } from "@/workflow/runner";
+import { runWorkflow, validateWorkflow } from "@/workflow/runner";
 import workflow from "@/examples/simpleWorkflow.json";
 
 export default async function Home() {
-
+  validateWorkflow(workflow)
   await runWorkflow(workflow)
 
 
