@@ -9,7 +9,7 @@ export type workflowNode = {
     id: string,
     type: string,
     data: Record<string, any>,
-    inputs: Record<string, string>
+    inputs?: Record<string, string>
 }
 
 
