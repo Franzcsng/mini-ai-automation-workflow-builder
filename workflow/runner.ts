@@ -149,7 +149,8 @@ export async function runWorkflow(workflow: workflow) {
         throw new Error(`No handler for ${node.type}`)
       }
 
-      const result = await handler(node, resolveInputs(node.inputs, context))
+
+      const result = await handler(node, resolveInputs(node.inputs ?? {}, context))
 
       context.results[node.id] = result
       completed.add(node.id)
