@@ -1,6 +1,7 @@
 import {workflow} from "./types"
 import { NodeType, WorkflowContext } from "./types"
 import {nodeRegistry} from './nodeRegistry'
+import { exists } from "fs"
 
 //This is the main function that runs the workflow basing on nodes and edges
 // 1. buildDependency is a helper function that builds a dependency map which 
@@ -59,18 +60,47 @@ function validateInputReferences(workflow: workflow) {
     for(const input in node.inputs){
       
       const referenceNode = getReferenceNode(node.inputs[input])
-
-      const hasDependency = workflow.edges.some(node => 
-        node.source === referenceNode &&
-        node.target === node.id
-        
+     
+      const hasDependency = workflow.edges.some(edge => 
+        edge.source === referenceNode &&
+        edge.target === node.id
       )
 
       if(!hasDependency){
-        throw new Error(`Input reference ${input} is not a dependency of node ${node.id}`)
+        throw new Error(`Input reference ${input} and node ${referenceNode} is not a dependency of node ${node.id}`)
       }
 
     }
+  }
+}
+
+function validateWorkflowCycle(workflow: workflow) {
+  const dependencyMap = buildDependencyMap(workflow)
+
+  const visited = new Set<string>()
+  const inStack = new Set<string>()
+
+  function dfs(nodeId: string) {
+    if (inStack.has(nodeId)) {
+      throw new Error(`Cycle detected at node: ${nodeId}`)
+    }
+
+    if (visited.has(nodeId)) return
+
+    visited.add(nodeId)
+    inStack.add(nodeId)
+
+    const dependencies = dependencyMap[nodeId] || []
+
+    for (const dep of dependencies) {
+      dfs(dep)
+    }
+
+    inStack.delete(nodeId)
+  }
+
+  for (const node of workflow.nodes) {
+    dfs(node.id)
   }
 }
 
@@ -79,6 +109,7 @@ export function validateWorkflow(workflow: workflow) {
   validateEdges(workflow)
   validateNodeTypes(workflow)
   validateInputReferences(workflow)
+  validateWorkflowCycle(workflow)
 }
 
 function buildDependencyMap(workflow: workflow){
@@ -97,8 +128,12 @@ function buildDependencyMap(workflow: workflow){
 }
 
 
-function isReady(nodeId: string, dependencyMap: Record<string, string[]>, completed: Set<string>) {
-  return dependencyMap[nodeId].every(dep => completed.has(dep))
+function isReady(
+  nodeId: string, 
+  dependencyMap: Record<string, string[]>, 
+  completed: Set<string>
+  ) {
+    return dependencyMap[nodeId].every(dep => completed.has(dep))
 }
 
 
@@ -123,6 +158,62 @@ function resolveInputs(inputs: Record<string, string>, context: WorkflowContext)
     return resolvedInputs
 }
 
+function topologicalSortHelper(readyList: string[], dependencyMap: Record<string, string[]>){
+
+  const updatedMap: Record<string, string[]> = { ...dependencyMap }
+
+  for(const readyNode of readyList){
+      for(const node in dependencyMap){
+        updatedMap[node] = dependencyMap[node].filter(dep => dep !== readyNode)
+    }
+  }
+
+  return updatedMap
+}
+
+function topologicalSort(workflow: workflow) {
+  let dependencyMap = buildDependencyMap(workflow)
+  const sorted: string[][] = [] 
+  let processed = new Set<string>()
+
+  const firstLayer: string[] = []
+
+  for(const node in dependencyMap){
+      if(dependencyMap[node].length === 0){
+          firstLayer.push(node)
+      }
+  }
+
+  let ready: string[][] = [firstLayer]
+
+  while(ready.length > 0){
+  
+    const readyList = ready.shift()
+    if (!readyList || readyList.length === 0) continue
+   
+    
+    dependencyMap = topologicalSortHelper(readyList, dependencyMap)  
+
+    sorted.push([...readyList])
+    const readySet = new Set(readyList)
+    processed = new Set([...processed, ...readySet]);
+
+    const nextReady: string[] = []
+
+    for(const node in dependencyMap){
+        if(dependencyMap[node].length === 0 && !processed.has(node)){
+           nextReady.push(node)
+        }
+    }
+
+    if (nextReady.length > 0) {
+      ready.push(nextReady)
+    }
+  }
+
+  return sorted
+} 
+
 
 export async function runWorkflow(workflow: workflow) {
   console.log("Starting DAG workflow...")
@@ -132,6 +223,10 @@ export async function runWorkflow(workflow: workflow) {
   let context: WorkflowContext = {
     results: {}
   }
+
+  validateWorkflow(workflow)
+  const layers = topologicalSort(workflow)
+  console.log('TOPOLOGICAL SORT: ', topologicalSort(workflow))
 
   while (completed.size < workflow.nodes.length) {
     let progress = false
@@ -149,8 +244,7 @@ export async function runWorkflow(workflow: workflow) {
         throw new Error(`No handler for ${node.type}`)
       }
 
-
-      const result = await handler(node, resolveInputs(node.inputs ?? {}, context))
+      const result = await handler(node, resolveInputs(node.inputs ?? {}, context), context)
 
       context.results[node.id] = result
       completed.add(node.id)
