@@ -127,16 +127,6 @@ function buildDependencyMap(workflow: workflow){
     return dependencyMap
 }
 
-
-function isReady(
-  nodeId: string, 
-  dependencyMap: Record<string, string[]>, 
-  completed: Set<string>
-  ) {
-    return dependencyMap[nodeId].every(dep => completed.has(dep))
-}
-
-
 function resolvePath(path: string, context: WorkflowContext) {
     const result = path
     .split('.')
@@ -159,16 +149,14 @@ function resolveInputs(inputs: Record<string, string>, context: WorkflowContext)
 }
 
 function topologicalSortHelper(readyList: string[], dependencyMap: Record<string, string[]>){
-
   const updatedMap: Record<string, string[]> = { ...dependencyMap }
 
   for(const readyNode of readyList){
-      for(const node in dependencyMap){
-        updatedMap[node] = dependencyMap[node].filter(dep => dep !== readyNode)
-    }
+      for(const node in updatedMap){
+        updatedMap[node] = updatedMap[node].filter(dep => dep !== readyNode)
+      }
   }
-
-  return updatedMap
+  return {...updatedMap}
 }
 
 function topologicalSort(workflow: workflow) {
@@ -190,10 +178,8 @@ function topologicalSort(workflow: workflow) {
   
     const readyList = ready.shift()
     if (!readyList || readyList.length === 0) continue
-   
-    
     dependencyMap = topologicalSortHelper(readyList, dependencyMap)  
-
+  
     sorted.push([...readyList])
     const readySet = new Set(readyList)
     processed = new Set([...processed, ...readySet]);
@@ -201,7 +187,9 @@ function topologicalSort(workflow: workflow) {
     const nextReady: string[] = []
 
     for(const node in dependencyMap){
+      
         if(dependencyMap[node].length === 0 && !processed.has(node)){
+          console.log(`PUSHING NEXT ${node} FROM:`, dependencyMap)
            nextReady.push(node)
         }
     }
@@ -214,47 +202,76 @@ function topologicalSort(workflow: workflow) {
   return sorted
 } 
 
+function findNode(workflow: workflow, nodeId: string) {
+   const node = workflow.nodes.find(node => node.id === nodeId)
+   if (!node) {
+     throw new Error(`Node not found: ${nodeId}`)
+   }
+   return node
+ }
+
+ export async function runWithConcurrencyLimit<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+
+  const results: R[] = []
+  let index = 0
+
+  const runners: Promise<void>[] = []
+
+  async function runNext() {
+    while (index < items.length) {
+      const currentIndex = index++
+      const item = items[currentIndex]
+
+      const result = await worker(item)
+      results[currentIndex] = result
+    }
+  }
+
+  for (let i = 0; i < limit; i++) {
+    runners.push(runNext())
+  }
+
+  await Promise.all(runners)
+
+  return results
+}
 
 export async function runWorkflow(workflow: workflow) {
   console.log("Starting DAG workflow...")
 
-  const dependencyMap = buildDependencyMap(workflow)
-  const completed = new Set<string>()
   let context: WorkflowContext = {
     results: {}
   }
 
   validateWorkflow(workflow)
-  const layers = topologicalSort(workflow)
-  console.log('TOPOLOGICAL SORT: ', topologicalSort(workflow))
+  const executionLayers = topologicalSort(workflow)
+  console.log('TOPOLOGICAL SORT: ', executionLayers)
 
-  while (completed.size < workflow.nodes.length) {
-    let progress = false
+  for (const layer of executionLayers) {
+    
+    const results = await runWithConcurrencyLimit(layer, 2, 
+      async (nodeId) => {
+        const node = findNode(workflow, nodeId)
+        console.log(`Executing node ${nodeId} (${node.type})`)
 
-    for (const node of workflow.nodes) {
-      if (completed.has(node.id)) continue
+        const handler =  nodeRegistry[node.type as NodeType]
 
-      if (!isReady(node.id, dependencyMap, completed)) continue
-      
-      console.log(`Executing node ${node.id} (${node.type})`)
+        if (!handler) {
+          throw new Error(`No handler for ${node.type}`)
+        }
+    
+        const result = await handler(node, resolveInputs(node.inputs ?? {}, context), context)
 
-      const handler = nodeRegistry[node.type as NodeType]
-
-      if (!handler) {
-        throw new Error(`No handler for ${node.type}`)
+        return {nodeId, result}
       }
-
-      const result = await handler(node, resolveInputs(node.inputs ?? {}, context), context)
-
-      context.results[node.id] = result
-      completed.add(node.id)
-
-      progress = true
-
-    }
-
-    if (!progress) {
-      throw new Error("Workflow stuck — possible circular dependency or missing node")
+    )
+    
+    for (const { nodeId, result } of results) {
+      context.results[nodeId] = result
     }
   }
 
