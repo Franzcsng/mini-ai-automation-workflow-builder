@@ -4,7 +4,11 @@ import {multiplyNode} from "./nodes/multiplyNode"
 import {constantNode} from "./nodes/constantNode"
 import { NodeType, WorkflowContext} from "./types"
 
-type NodeHandler = (node: any, resolvedInputs: Record<string, any>) => Promise<any>
+type NodeHandler = (
+    node: any, 
+    resolvedInputs: Record<string, any>, 
+    context: WorkflowContext
+  ) => Promise<any>
 
 export const nodeRegistry: Partial<Record<NodeType, NodeHandler>> = {
   "console.log": consoleLogNode,
