@@ -19,18 +19,7 @@ export type workflowEdges = {
     target: string
 }
 
-// export type WorkflowRunState = {
-//   workflowId: string
-//   status: "running" | "completed" | "failed"
 
-//   nodeStates: Record<
-//     string,
-//     {
-//       status: "pending" | "running" | "completed" | "failed"
-//       output?: any
-//     }
-//   >
-// }
 
 export type NodeType =
   | "console.log"
