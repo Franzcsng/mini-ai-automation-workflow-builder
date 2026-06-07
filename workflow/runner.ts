@@ -252,7 +252,8 @@ export async function runWorkflow(workflow: workflow) {
   console.log('TOPOLOGICAL SORT: ', executionLayers)
 
   for (const layer of executionLayers) {
-    
+    let workflowFailed = false
+
     const results = await runWithConcurrencyLimit(layer, 2, 
       async (nodeId) => {
         const node = findNode(workflow, nodeId)
@@ -263,15 +264,40 @@ export async function runWorkflow(workflow: workflow) {
         if (!handler) {
           throw new Error(`No handler for ${node.type}`)
         }
-    
-        const result = await handler(node, resolveInputs(node.inputs ?? {}, context), context)
+        
+        try{
+          
+          const result = await handler(node, resolveInputs(node.inputs ?? {}, context), context)
+        
+          return {nodeId, result}
 
-        return {nodeId, result}
+        }catch(e){
+          
+          return {
+            nodeId, 
+            result: {
+              nodeId, 
+              success: false, 
+              error: e instanceof Error ? e.message : "Unknown Error",
+              meta: {
+                startedAt: Date.now(),
+                finishedAt: Date.now()
+              }
+            }
+          }
+
+        }
       }
     )
     
     for (const { nodeId, result } of results) {
       context.results[nodeId] = result
+
+      if(!result.success){
+        console.log(`Workflow failed at node ${nodeId}, here is the results: `, context.results)
+        return context.results
+      }
+
     }
   }
 
