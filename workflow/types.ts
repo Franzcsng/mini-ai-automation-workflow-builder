@@ -26,17 +26,18 @@ export type NodeType =
   | "add.node"
   | "multiply.node"
   | "constant.node"
+  | "testfail.node"
 
 
   export type NodeResult<T =  any> = {
     nodeId: string
     success: boolean
-    output: T
+    output?: T
     error?: string
     meta?: {
-    startedAt: number
-    finishedAt: number
-  }
+      startedAt: number
+      finishedAt: number
+    }
 }
 
 

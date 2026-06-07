@@ -17,6 +17,13 @@
       }
     },
     {
+      "id": "7",
+      "type": "testfail.node",
+      "data": {
+       "value": 2
+      }
+    },
+    {
       "id": "3",
       "type": "constant.node",
       "data": {
@@ -60,11 +67,6 @@
       "target": "2"
     },
     {
-      "id": "2",
-      "source": "1",
-      "target": "4"
-    },
-    {
       "id": "3",
       "source": "2",
       "target": "5"
@@ -88,6 +90,16 @@
       "id": "7",
       "source": "4",
       "target": "3"
+    },
+    {
+      "id": "8",
+      "source": "1",
+      "target": "7"
+    },
+    {
+      "id": "9",
+      "source": "7",
+      "target": "4"
     }
 
   ]
