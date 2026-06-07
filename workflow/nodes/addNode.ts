@@ -1,5 +1,3 @@
-import { WorkflowContext } from "../types"
-
 
 export async function addNode(node: any,  resolvedInputs: Record<string, any>) {
     let result = 1

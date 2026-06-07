@@ -1,7 +1,6 @@
-import { WorkflowContext } from "../types"
+import {workflowNode } from "../types"
 
-
-export async function multiplyNode(node: any,  resolvedInputs: Record<string, any>) {
+export async function multiplyNode(node: workflowNode,  resolvedInputs: Record<string, any>) {
     
     let result = 1;
     

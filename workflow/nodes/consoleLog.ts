@@ -1,4 +1,4 @@
-import { WorkflowContext, workflowNode } from "../types"
+import { workflowNode } from "../types"
 
 export async function consoleLogNode(
     node: workflowNode, 
