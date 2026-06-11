@@ -21,6 +21,10 @@
       "type": "testfail.node",
       "data": {
        "value": 2
+      },
+      "retry": {
+        "attempts": 2,
+        "delayMs": 100
       }
     },
     {
