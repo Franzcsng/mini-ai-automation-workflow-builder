@@ -240,6 +240,28 @@ function findNode(workflow: workflow, nodeId: string) {
   return results
 }
 
+async function executeWithRetry<t>(
+  fn: () => Promise<t>,
+  attempts: number,
+  delayMs: number = 0
+){
+  let lastError: any
+  
+  for(let i = 0; i < attempts; i++){
+    try{
+      return await fn()
+    }catch(e){
+      lastError = e 
+
+      if(i < attempts - 1 && delayMs > 0){      
+        await new Promise(resolve => setTimeout(resolve, delayMs))
+      }
+    }
+  }
+
+  throw lastError
+}
+
 export async function runWorkflow(workflow: workflow) {
   console.log("Starting DAG workflow...")
 
@@ -266,8 +288,13 @@ export async function runWorkflow(workflow: workflow) {
         }
         
         try{
+          const retryConfig = node.retry ?? { attempts: 1, delayMs: 0 }
           
-          const result = await handler(node, resolveInputs(node.inputs ?? {}, context), context)
+          const result = await executeWithRetry(
+            () => handler(node, resolveInputs(node.inputs ?? {}, context), context),
+            retryConfig.attempts,
+            retryConfig.delayMs
+          )
         
           return {nodeId, result}
 
