@@ -9,7 +9,11 @@ export type workflowNode = {
     id: string,
     type: string,
     data: Record<string, any>,
-    inputs?: Record<string, string>
+    inputs?: Record<string, string>,
+    retry?: {
+      attempts: number,
+      delayMs: number
+    }
 }
 
 
@@ -37,7 +41,7 @@ export type NodeType =
     meta?: {
       startedAt: number
       finishedAt: number
-    }
+    },
 }
 
 
