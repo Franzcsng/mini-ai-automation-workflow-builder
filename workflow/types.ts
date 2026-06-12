@@ -10,9 +10,10 @@ export type workflowNode = {
     type: string,
     data: Record<string, any>,
     inputs?: Record<string, string>,
-    retry?: {
+    execution?: {
       attempts: number,
-      delayMs: number
+      delayMs: number,
+      timeoutMs: number
     }
 }
 

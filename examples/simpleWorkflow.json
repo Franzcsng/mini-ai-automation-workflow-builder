@@ -22,9 +22,10 @@
       "data": {
        "value": 2
       },
-      "retry": {
+      "execution": {
         "attempts": 2,
-        "delayMs": 100
+        "delayMs": 100,
+        "timeoutMs": 5000
       }
     },
     {
