@@ -1,8 +1,6 @@
 import {workflow} from "./types"
 import { NodeType, WorkflowContext } from "./types"
 import {nodeRegistry} from './nodeRegistry'
-import { exists } from "fs"
-
 //This is the main function that runs the workflow basing on nodes and edges
 // 1. buildDependency is a helper function that builds a dependency map which 
 // returns a map of node ids to their dependencies
@@ -159,6 +157,7 @@ function topologicalSortHelper(readyList: string[], dependencyMap: Record<string
   return {...updatedMap}
 }
 
+
 function topologicalSort(workflow: workflow) {
   let dependencyMap = buildDependencyMap(workflow)
   const sorted: string[][] = [] 
@@ -262,6 +261,18 @@ async function executeWithRetry<t>(
   throw lastError
 }
 
+async function executeWithTimeout(
+  fn: () => Promise<T>,
+  timeoutMs: number
+): Promise<T> {
+  return Promise.race([
+    fn(),
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), timeoutMs)
+    )
+  ])
+}
+
 export async function runWorkflow(workflow: workflow) {
   console.log("Starting DAG workflow...")
 
@@ -288,10 +299,13 @@ export async function runWorkflow(workflow: workflow) {
         }
         
         try{
-          const retryConfig = node.retry ?? { attempts: 1, delayMs: 0 }
+          const retryConfig = node.execution ?? { attempts: 1, delayMs: 0, timeoutMs: 20000 }
           
           const result = await executeWithRetry(
-            () => handler(node, resolveInputs(node.inputs ?? {}, context), context),
+            () => executeWithTimeout(
+              () =>handler(node, resolveInputs(node.inputs ?? {}, context), context), 
+              retryConfig.timeoutMs
+            ),
             retryConfig.attempts,
             retryConfig.delayMs
           )
