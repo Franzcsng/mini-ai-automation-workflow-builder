@@ -280,7 +280,119 @@ function canExecute(nodeId: string, dependencyMap: Record<string, string[]>, exe
 }
 
 
+export async function runWorkflow(workflow: workflow) {
+  console.log("Starting DAG workflow...")
+  let dependencyMap = buildDependencyMap(workflow)
+  let context: WorkflowContext = {
+    results: {},
+    executions: {}    
+  }
 
+ 
+  validateWorkflow(workflow)
+  const executionLayers = topologicalSort(workflow)
+
+  for (const node of workflow.nodes) {
+    context.executions[node.id] = {
+      status: "pending"
+    }
+  }
+
+  console.log('TOPOLOGICAL SORT: ', executionLayers)
+
+  for (const layer of executionLayers) {
+    let workflowFailed = false
+    const startedAt = Date.now()
+    const executableNodes = layer.filter(nodeId => canExecute(nodeId, dependencyMap, context.executions)) 
+    const skippedNodes = layer.filter(nodeId => !canExecute(nodeId, dependencyMap, context.executions))
+
+    for (const nodeId of skippedNodes) {
+      context.executions[nodeId] = {
+        status: "skipped",
+        startedAt,
+        finishedAt: Date.now(),
+        error: "Dependencies not met"
+      }
+    }
+    
+    const results = await runWithConcurrencyLimit(executableNodes, 2, 
+      async (nodeId) => {
+
+        context.executions[nodeId] = {
+          status: "running",
+          startedAt
+        }
+
+        const node = findNode(workflow, nodeId)
+        console.log(`Executing node ${nodeId} (${node.type})`)
+
+        const handler =  nodeRegistry[node.type as NodeType]
+
+        if (!handler) {
+          context.executions[nodeId] = {
+            ...context.executions[nodeId],
+            status: "failed",
+            finishedAt: Date.now(),
+            error: `No handler for ${node.type}`
+          }
+
+          throw new Error(`No handler for ${node.type}`)
+        }
+        
+        try{
+          const retryConfig = node.execution ?? { attempts: 1, delayMs: 0, timeoutMs: 20000 }
+          
+          const result = await executeWithRetry(
+            () => executeWithTimeout(
+              () => handler(node, resolveInputs(node.inputs ?? {}, context), context), 
+              retryConfig.timeoutMs
+            ),
+            retryConfig.attempts,
+            retryConfig.delayMs
+          )
+
+          context.executions[nodeId] = {
+            ...context.executions[nodeId],
+            status: "success",
+            finishedAt: Date.now()
+          }
+        
+          return {nodeId, result}
+
+        }catch(e){
+
+          context.executions[nodeId] = {
+            ...context.executions[nodeId],
+            status: "failed",
+            finishedAt: Date.now(),
+            error:  e instanceof Error ? e.message : "Unknown Error"
+          }
+          
+          return {
+            nodeId, 
+            result: {
+              nodeId, 
+              success: false, 
+              error: e instanceof Error ? e.message : "Unknown Error",
+              meta: {
+                startedAt: Date.now(),
+                finishedAt: Date.now()
+              }
+            }
+          }
+
+        }
+      }
+    )
+    
+    for (const { nodeId, result } of results) {
+      context.results[nodeId] = result
+    }
+  }
+
+  console.log("Workflow complete, here is the results: ", context.results)
+  return context.results
+}
 
 // export async function runWorkflow(workflow: workflow) {
 //   console.log("Starting DAG workflow...")
