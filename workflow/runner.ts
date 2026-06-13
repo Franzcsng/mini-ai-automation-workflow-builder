@@ -336,7 +336,19 @@ export async function runWorkflow(workflow: workflow) {
             error: `No handler for ${node.type}`
           }
 
-          throw new Error(`No handler for ${node.type}`)
+          return {
+            nodeId, 
+            result: {
+              nodeId, 
+              success: false, 
+              error: `No handler for ${node.type}`,
+              meta: {
+                startedAt: Date.now(),
+                finishedAt: Date.now()
+              }
+            }
+          }
+          // throw new Error(`No handler for ${node.type}`)
         }
         
         try{
@@ -387,10 +399,13 @@ export async function runWorkflow(workflow: workflow) {
     
     for (const { nodeId, result } of results) {
       context.results[nodeId] = result
+
+      console.log(`RESULTS FOR NODE ${nodeId}: `, context.results[nodeId])
     }
   }
 
   console.log("Workflow complete, here is the results: ", context.results)
+  console.log("Workflow complete, here is the executions: ", context.executions)
   return context.results
 }
 
