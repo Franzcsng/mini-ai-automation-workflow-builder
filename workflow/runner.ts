@@ -284,8 +284,11 @@ export async function runWorkflow(workflow: workflow) {
   console.log("Starting DAG workflow...")
   let dependencyMap = buildDependencyMap(workflow)
   let context: WorkflowContext = {
+    status: "started",
     results: {},
-    executions: {}    
+    executions: {},
+    startedAt: Date.now(),
+    finishedAt: 0
   }
 
  
@@ -302,6 +305,7 @@ export async function runWorkflow(workflow: workflow) {
 
   for (const layer of executionLayers) {
     let workflowFailed = false
+    
     const startedAt = Date.now()
     const executableNodes = layer.filter(nodeId => canExecute(nodeId, dependencyMap, context.executions)) 
     const skippedNodes = layer.filter(nodeId => !canExecute(nodeId, dependencyMap, context.executions))
@@ -402,6 +406,16 @@ export async function runWorkflow(workflow: workflow) {
 
       console.log(`RESULTS FOR NODE ${nodeId}: `, context.results[nodeId])
     }
+  }
+
+  const executionStatuses = Object.values(context.executions).map(execution => execution.status)
+
+  if (executionStatuses.every(status => status === "failed")) {
+    context.status = "failed"
+  } else if (executionStatuses.every(status => status === "success")) {
+    context.status = "success"
+  } else {
+    context.status = "partial"
   }
 
   console.log("Workflow complete, here is the results: ", context.results)

@@ -48,8 +48,11 @@ export type NodeType =
 
 
 export type WorkflowContext = {
+  status: "success" | "failed" | "partial" | "started"
   results: Record<string, NodeResult>,
-  executions: Record<string, NodeExecution>
+  executions: Record<string, NodeExecution>,
+  startedAt: number,
+  finishedAt: number
 }
 
 export interface NodeExecution {
