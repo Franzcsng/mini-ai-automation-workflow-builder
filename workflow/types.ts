@@ -11,6 +11,7 @@ export type workflowNode = {
     data: Record<string, any>,
     inputs?: Record<string, string>,
     execution?: {
+      state: string,
       attempts: number,
       delayMs: number,
       timeoutMs: number
@@ -47,5 +48,13 @@ export type NodeType =
 
 
 export type WorkflowContext = {
-  results: Record<string, NodeResult>
+  results: Record<string, NodeResult>,
+  executions: Record<string, NodeExecution>
+}
+
+export interface NodeExecution {
+  status: "pending" | "running" | "success" | "failed" | "skipped"
+  startedAt?: number,
+  finishedAt?: number,
+  error?: string
 }
