@@ -1,5 +1,5 @@
 import {workflow} from "./types"
-import { NodeType, WorkflowContext, NodeExecution } from "./types"
+import { NodeType, WorkflowContext, NodeExecution, workflowNode, workflowEdges, NodeResult} from "./types"
 import {nodeRegistry} from './nodeRegistry'
 //This is the main function that runs the workflow basing on nodes and edges
 // 1. buildDependency is a helper function that builds a dependency map which 
@@ -140,6 +140,7 @@ function resolveInputs(inputs: Record<string, string>, context: WorkflowContext)
     const resolvedInputs: Record<string, any> = {}
 
     for(const key in inputs){
+      // console.log('RESOLVING KEY ', key)
         resolvedInputs[key] = resolvePath(inputs[key], context)
     }
 
@@ -247,11 +248,12 @@ async function executeWithRetry<T>(
   let lastError: any
   
   for(let i = 0; i < attempts; i++){
+    console.log(`Attempt ${i + 1} of ${attempts}`)
     try{
       return await fn()
     }catch(e){
       lastError = e 
-
+      
       if(i < attempts - 1 && delayMs > 0){      
         await new Promise(resolve => setTimeout(resolve, delayMs))
       }
@@ -273,10 +275,45 @@ async function executeWithTimeout<T>(
   ])
 }
 
-function canExecute(nodeId: string, dependencyMap: Record<string, string[]>, executions: Record<string, NodeExecution>) {
-  const deps = dependencyMap[nodeId] || []
+function canExecute(
+  nodeId: string,
+  results: Record<string, NodeResult>,
+  // dependencyMap: Record<string, string[]>, 
+  executions: Record<string, NodeExecution>, 
+  workflow: workflow
+){
+  // const deps = dependencyMap[nodeId] || []
+  const node = findNode(workflow, nodeId)
+  const incoming = workflow.edges.filter(edge => edge.target === nodeId)
 
-  return deps.every(dep => executions[dep]?.status === "success")
+  const requiredEdges = incoming.filter(edge => edge.condition === undefined)
+  const optionalEdges = incoming.filter(edge => edge.condition !== undefined)
+
+  if (node.execution?.join === "any") {
+    return requiredEdges.some(
+      edge => executions[edge.source]?.status === "success"
+    )
+  }
+
+  const requiredOk = requiredEdges.every(edge =>
+     executions[edge.source]?.status === 'success'
+  )
+
+  if(!requiredOk) return false
+
+  const optionalOk = 
+    optionalEdges.length === 0 
+    ||
+    optionalEdges.some(edge => {
+      const source = edge.source
+      const sourceResult = results[source]
+
+      if(!sourceResult) return false
+
+      return sourceResult.output?.condition === edge.condition
+    })
+
+  return optionalOk
 }
 
 
@@ -302,14 +339,14 @@ export async function runWorkflow(workflow: workflow) {
     }
   }
 
-  console.log('EXECUTION LAYERS: ', executionLayers)
+  // console.log('EXECUTION LAYERS: ', executionLayers)
 
   for (const layer of executionLayers) {
-    let workflowFailed = false
+    // let workflowFailed = false
     
     const startedAt = Date.now()
-    const executableNodes = layer.filter(nodeId => canExecute(nodeId, dependencyMap, context.executions)) 
-    const skippedNodes = layer.filter(nodeId => !canExecute(nodeId, dependencyMap, context.executions))
+    const executableNodes = layer.filter(nodeId => canExecute(nodeId, context.results, context.executions, workflow)) 
+    const skippedNodes = layer.filter(nodeId => !canExecute(nodeId, context.results, context.executions, workflow))
 
     for (const nodeId of skippedNodes) {
       context.executions[nodeId] = {
@@ -353,19 +390,19 @@ export async function runWorkflow(workflow: workflow) {
               }
             }
           }
-          // throw new Error(`No handler for ${node.type}`)
         }
         
         try{
           const retryConfig = node.execution ?? { attempts: 1, delayMs: 0, timeoutMs: 20000 }
           
+          console.log('RETRY CONFIG: ', retryConfig)
           const result = await executeWithRetry(
             () => executeWithTimeout(
               () => handler(node, resolveInputs(node.inputs ?? {}, context), context), 
-              retryConfig.timeoutMs
+              retryConfig.timeoutMs ?? 20000
             ),
-            retryConfig.attempts,
-            retryConfig.delayMs
+            retryConfig.attempts ?? 1,
+            retryConfig.delayMs ?? 0
           )
 
           context.executions[nodeId] = {
@@ -377,7 +414,7 @@ export async function runWorkflow(workflow: workflow) {
           return {nodeId, result}
 
         }catch(e){
-
+          console.log(`Error executing node ${nodeId}: `, e)
           context.executions[nodeId] = {
             ...context.executions[nodeId],
             status: "failed",
@@ -429,7 +466,7 @@ export async function runWorkflow(workflow: workflow) {
 
 
   console.log("Workflow complete, here is the results: ", context.results)
-  console.log("Workflow complete, here is the executions: ", context.executions)
-  console.log('WORKFLOW STATE: ', context)
+  // console.log("Workflow complete, here is the executions: ", context.executions)
+  // console.log('WORKFLOW STATE: ', context)
   return context.results
 }

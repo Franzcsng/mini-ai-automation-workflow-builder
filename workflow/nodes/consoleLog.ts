@@ -5,7 +5,13 @@ export async function consoleLogNode(
     resolvedInputs: Record<string, any>
 ) {
 
+  try{
     console.log('Message: ', node.data.message)
+  }catch(e){
+    console.log('console.log node error: ', e)
+
+  }
+  
     
   return {
     nodeId: node.id,

@@ -4,64 +4,52 @@
   "nodes": [
     {
       "id": "1",
-      "type": "console.log",
+      "type": "constant.node",
       "data": {
-       "message": "Starting worflow"
+       "value": 5
       }
     },
     {
       "id": "2",
       "type": "constant.node",
       "data": {
-       "value": 2
+       "value": 5
       }
     },
-    {
-      "id": "7",
-      "type": "testfail.node",
-      "data": {
-       "value": 2
-      },
-      "execution": {
-        "attempts": 2,
-        "delayMs": 100,
-        "timeoutMs": 5000
-      }
-    },
+
     {
       "id": "3",
-      "type": "constant.node",
+      "type": "conditional.node",
       "data": {
-        "value": 2
+       "operator": "!=="
+      },
+      "inputs": {
+        "left": "1.output.value",
+        "right": "2.output.value"
       }
     },
     {
-        "id": "4",
-        "type": "constant.node",
-        "data": {
-            "value": 3
+      "id": "4",
+      "type": "constant.node",
+      "data": {
+          "value": 2
       }
     },
     {
       "id": "5",
-      "type": "add.node",
+      "type": "constant.node",
       "data": {
-       "message": "Addition"
-      },
-      "inputs": {
-        "a": "2.output.value",
-        "b": "4.output.value"
+       "value": 1
       }
     },
      {
       "id": "6",
-      "type": "multiply.node",
+      "type": "constant.node",
       "data": {
-       "message": "Multiplication"
+       "value": 2
       },
-      "inputs": {
-        "a": "3.output.value",
-        "b": "5.output.value"
+      "execution": {
+        "join": "any"
       }
     }
   ],
@@ -69,43 +57,34 @@
     {
       "id": "1",
       "source": "1",
-      "target": "2"
+      "target": "3"
     },
     {
       "id": "3",
       "source": "2",
-      "target": "5"
+      "target": "3"
     },
     {
       "id": "4",
-      "source": "4",
-      "target": "5"
+      "source": "3",
+      "target": "4",
+      "condition": true
     },
     {
       "id": "5",
       "source": "3",
-      "target": "6"
+      "target": "5",
+      "condition": false
     },
     {
       "id": "6",
-      "source": "5",
+      "source": "4",
       "target": "6"
     },
     {
       "id": "7",
-      "source": "4",
-      "target": "3"
-    },
-    {
-      "id": "8",
-      "source": "1",
-      "target": "7"
-    },
-    {
-      "id": "9",
-      "source": "7",
-      "target": "4"
+      "source": "5",
+      "target": "6"
     }
-
   ]
 }
