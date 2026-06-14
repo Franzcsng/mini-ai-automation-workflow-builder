@@ -11,6 +11,7 @@ export type workflowNode = {
     data: Record<string, any>,
     inputs?: Record<string, string>,
     execution?: {
+      join: joinStrategy,
       state: string,
       attempts: number,
       delayMs: number,
@@ -18,11 +19,13 @@ export type workflowNode = {
     }
 }
 
+export type joinStrategy = "all" | "any"
 
 export type workflowEdges = {
     id: string,
     source: string,
-    target: string
+    target: string,
+    condition?: boolean
 }
 
 
@@ -33,6 +36,7 @@ export type NodeType =
   | "multiply.node"
   | "constant.node"
   | "testfail.node"
+  | "conditional.node"
 
 
   export type NodeResult<T =  any> = {
