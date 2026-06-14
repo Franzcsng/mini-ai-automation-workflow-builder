@@ -130,7 +130,7 @@ function resolvePath(path: string, context: WorkflowContext) {
     .split('.')
     .reduce<any>((acc, key) => acc?.[key], context.results)
 
-    console.log("Resolving:", path, "=>", result)
+    // console.log("Resolving:", path, "=>", result)
 
     return result
 }
@@ -188,7 +188,7 @@ function topologicalSort(workflow: workflow) {
     for(const node in dependencyMap){
       
         if(dependencyMap[node].length === 0 && !processed.has(node)){
-          console.log(`PUSHING NEXT ${node} FROM:`, dependencyMap)
+          // console.log(`PUSHING NEXT ${node} FROM:`, dependencyMap)
            nextReady.push(node)
         }
     }
@@ -288,7 +288,8 @@ export async function runWorkflow(workflow: workflow) {
     results: {},
     executions: {},
     startedAt: Date.now(),
-    finishedAt: 0
+    finishedAt: 0,
+    durationMs: 0
   }
 
  
@@ -301,7 +302,7 @@ export async function runWorkflow(workflow: workflow) {
     }
   }
 
-  console.log('TOPOLOGICAL SORT: ', executionLayers)
+  console.log('EXECUTION LAYERS: ', executionLayers)
 
   for (const layer of executionLayers) {
     let workflowFailed = false
@@ -404,11 +405,13 @@ export async function runWorkflow(workflow: workflow) {
     for (const { nodeId, result } of results) {
       context.results[nodeId] = result
 
-      console.log(`RESULTS FOR NODE ${nodeId}: `, context.results[nodeId])
+      // console.log(`RESULTS FOR NODE ${nodeId}: `, context.results[nodeId])
     }
   }
 
-
+  context.finishedAt = Date.now()
+  context.durationMs = context.finishedAt - context.startedAt
+  
   // INITIAL WORFKLOW STATUS CHECK LOGIC
   const executionStatuses = Object.values(context.executions).map(execution => execution.status)
 
@@ -427,79 +430,6 @@ export async function runWorkflow(workflow: workflow) {
 
   console.log("Workflow complete, here is the results: ", context.results)
   console.log("Workflow complete, here is the executions: ", context.executions)
+  console.log('WORKFLOW STATE: ', context)
   return context.results
 }
-
-// export async function runWorkflow(workflow: workflow) {
-//   console.log("Starting DAG workflow...")
-
-//   let context: WorkflowContext = {
-//     results: {},
-//     executions: {}    
-//   }
-
-//   validateWorkflow(workflow)
-//   const executionLayers = topologicalSort(workflow)
-//   console.log('TOPOLOGICAL SORT: ', executionLayers)
-
-//   for (const layer of executionLayers) {
-//     let workflowFailed = false
-
-//     const results = await runWithConcurrencyLimit(layer, 2, 
-//       async (nodeId) => {
-//         const node = findNode(workflow, nodeId)
-//         console.log(`Executing node ${nodeId} (${node.type})`)
-
-//         const handler =  nodeRegistry[node.type as NodeType]
-
-//         if (!handler) {
-//           throw new Error(`No handler for ${node.type}`)
-//         }
-        
-//         try{
-//           const retryConfig = node.execution ?? { attempts: 1, delayMs: 0, timeoutMs: 20000 }
-          
-//           const result = await executeWithRetry(
-//             () => executeWithTimeout(
-//               () =>handler(node, resolveInputs(node.inputs ?? {}, context), context), 
-//               retryConfig.timeoutMs
-//             ),
-//             retryConfig.attempts,
-//             retryConfig.delayMs
-//           )
-        
-//           return {nodeId, result}
-
-//         }catch(e){
-          
-//           return {
-//             nodeId, 
-//             result: {
-//               nodeId, 
-//               success: false, 
-//               error: e instanceof Error ? e.message : "Unknown Error",
-//               meta: {
-//                 startedAt: Date.now(),
-//                 finishedAt: Date.now()
-//               }
-//             }
-//           }
-
-//         }
-//       }
-//     )
-    
-//     for (const { nodeId, result } of results) {
-//       context.results[nodeId] = result
-
-//       if(!result.success){
-//         console.log(`Workflow failed at node ${nodeId}, here is the results: `, context.results)
-//         return context.results
-//       }
-
-//     }
-//   }
-
-//   console.log("Workflow complete, here is the results: ", context.results)
-//   return context.results
-// }

@@ -52,7 +52,8 @@ export type WorkflowContext = {
   results: Record<string, NodeResult>,
   executions: Record<string, NodeExecution>,
   startedAt: number,
-  finishedAt: number
+  finishedAt: number,
+  durationMs: number
 }
 
 export interface NodeExecution {
