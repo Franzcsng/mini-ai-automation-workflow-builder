@@ -408,15 +408,22 @@ export async function runWorkflow(workflow: workflow) {
     }
   }
 
+
+  // INITIAL WORFKLOW STATUS CHECK LOGIC
   const executionStatuses = Object.values(context.executions).map(execution => execution.status)
 
-  if (executionStatuses.every(status => status === "failed")) {
-    context.status = "failed"
-  } else if (executionStatuses.every(status => status === "success")) {
+  const successCount = executionStatuses.filter(status => status === "success").length
+  const failedCount = executionStatuses.filter(status => status === "failed").length
+  const skippedCount = executionStatuses.filter(status => status === "skipped").length
+
+  if(failedCount === 0 && skippedCount === 0){
     context.status = "success"
+  } else if(successCount === 0 && skippedCount === 0){
+    context.status = "failed"
   } else {
     context.status = "partial"
   }
+
 
   console.log("Workflow complete, here is the results: ", context.results)
   console.log("Workflow complete, here is the executions: ", context.executions)
