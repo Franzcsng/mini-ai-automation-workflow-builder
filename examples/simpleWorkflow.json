@@ -37,9 +37,9 @@
     },
     {
       "id": "5",
-      "type": "constant.node",
+      "type": "approval.node",
       "data": {
-       "value": 1
+       "message": "Approve?"
       }
     },
      {
