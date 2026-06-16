@@ -317,36 +317,52 @@ function canExecute(
 }
 
 
-export async function runWorkflow(workflow: workflow) {
-  console.log("Starting DAG workflow...")
-  let dependencyMap = buildDependencyMap(workflow)
-  let context: WorkflowContext = {
-    status: "started",
-    results: {},
-    executions: {},
-    startedAt: Date.now(),
-    finishedAt: 0,
-    durationMs: 0
-  }
-
- 
-  validateWorkflow(workflow)
-  const executionLayers = topologicalSort(workflow)
+function createWorkflowContext(workflow: workflow): WorkflowContext {
+  
+  const executions: Record<string, any> = {}
 
   for (const node of workflow.nodes) {
-    context.executions[node.id] = {
+    executions[node.id] = {
       status: "pending"
     }
   }
 
-  // console.log('EXECUTION LAYERS: ', executionLayers)
+  return {
+    status: "started",
+    results: {},
+    executions,
+    pausedNodeId: "",
+    startedAt: Date.now(),
+    finishedAt: 0,
+    durationMs: 0
+  }
+}
+
+export async function executeWorkflow(workflow: workflow, context: WorkflowContext) {
+
+  const executionLayers = topologicalSort(workflow)
 
   for (const layer of executionLayers) {
-    // let workflowFailed = false
-    
+
     const startedAt = Date.now()
-    const executableNodes = layer.filter(nodeId => canExecute(nodeId, context.results, context.executions, workflow)) 
-    const skippedNodes = layer.filter(nodeId => !canExecute(nodeId, context.results, context.executions, workflow))
+    const executableNodes = layer.filter(nodeId => {
+
+      const execution = context.executions[nodeId]
+
+      if(execution.status === "success") return false
+
+      return canExecute(nodeId, context.results, context.executions, workflow)
+    }) 
+
+    const skippedNodes = layer.filter(nodeId => {
+
+      const execution = context.executions[nodeId]
+
+      if(execution.status !== "pending") return false 
+
+      return !canExecute(nodeId, context.results, context.executions, workflow
+      )
+    })
 
     for (const nodeId of skippedNodes) {
       context.executions[nodeId] = {
@@ -369,6 +385,8 @@ export async function runWorkflow(workflow: workflow) {
         console.log(`Executing node ${nodeId} (${node.type})`)
 
         const handler =  nodeRegistry[node.type as NodeType]
+
+        
 
         if (!handler) {
           context.executions[nodeId] = {
@@ -393,6 +411,7 @@ export async function runWorkflow(workflow: workflow) {
         }
         
         try{
+
           const retryConfig = node.execution ?? { attempts: 1, delayMs: 0, timeoutMs: 20000 }
           
           console.log('RETRY CONFIG: ', retryConfig)
@@ -405,12 +424,20 @@ export async function runWorkflow(workflow: workflow) {
             retryConfig.delayMs ?? 0
           )
 
-          context.executions[nodeId] = {
-            ...context.executions[nodeId],
-            status: "success",
-            finishedAt: Date.now()
+          if(result.waitingForInput){
+            context.executions[nodeId] = {
+              ...context.executions[nodeId],
+              status: "paused",
+              finishedAt: Date.now()
+            }
+          } else {
+            context.executions[nodeId] = {
+              ...context.executions[nodeId],
+              status: "success",
+              finishedAt: Date.now()
+            } 
           }
-        
+          
           return {nodeId, result}
 
         }catch(e){
@@ -442,7 +469,16 @@ export async function runWorkflow(workflow: workflow) {
     for (const { nodeId, result } of results) {
       context.results[nodeId] = result
 
-      // console.log(`RESULTS FOR NODE ${nodeId}: `, context.results[nodeId])
+      if(context.results[nodeId].waitingForInput && context.executions[nodeId].status === "paused"){
+        context.status = "paused"
+
+        context.pausedNodeId = nodeId
+
+        context.finishedAt = Date.now()
+        context.durationMs = context.finishedAt - context.startedAt
+        console.log("PAUSED CONTEXT: ", context)
+        return context
+      }
     }
   }
 
@@ -450,6 +486,47 @@ export async function runWorkflow(workflow: workflow) {
   context.durationMs = context.finishedAt - context.startedAt
   
   // INITIAL WORFKLOW STATUS CHECK LOGIC
+  
+  console.log("Workflow complete, here is the results: ", context.results)
+  return context
+}
+
+export async function resumeWorkflow(workflow: workflow, savedContext: WorkflowContext, humanInput: any) {
+  
+  const pausedNodeId = savedContext.pausedNodeId
+
+  if(!pausedNodeId){
+    throw new Error("No paused node found")
+  }
+
+  savedContext.results[pausedNodeId] = {
+    ...savedContext.results[pausedNodeId],
+    waitingForInput: false,
+    output: humanInput,
+    meta: {
+        startedAt: Date.now(),
+        finishedAt: Date.now()
+    }
+  }
+
+  savedContext.executions[pausedNodeId] = {
+    ...savedContext.executions[pausedNodeId],
+    status: "success",
+    finishedAt: Date.now()
+  }
+
+  savedContext.status = "running"
+
+  const workflowResult = await executeWorkflow(workflow, savedContext)
+
+  if(workflowResult.status !== "paused"){
+    finalizeWorkflow(workflowResult)
+  }
+
+  return workflowResult
+}
+
+function finalizeWorkflow(context: WorkflowContext){
   const executionStatuses = Object.values(context.executions).map(execution => execution.status)
 
   const successCount = executionStatuses.filter(status => status === "success").length
@@ -464,9 +541,20 @@ export async function runWorkflow(workflow: workflow) {
     context.status = "partial"
   }
 
+  return context
+}
 
-  console.log("Workflow complete, here is the results: ", context.results)
-  // console.log("Workflow complete, here is the executions: ", context.executions)
-  // console.log('WORKFLOW STATE: ', context)
-  return context.results
+export async function runWorkflow(workflow: workflow) {
+  console.log("Starting DAG workflow...")
+  validateWorkflow(workflow)
+
+  let context = createWorkflowContext(workflow)
+
+  const workflowResult = await executeWorkflow(workflow, context)
+
+  if(workflowResult.status !== "paused"){
+    finalizeWorkflow(workflowResult)
+  }
+
+  return workflowResult
 }
