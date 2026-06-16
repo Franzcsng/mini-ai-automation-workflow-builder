@@ -4,6 +4,7 @@ import {multiplyNode} from "./nodes/multiplyNode"
 import {constantNode} from "./nodes/constantNode"
 import {testFailNode} from "./nodes/testFailNode"
 import {conditionalNode} from "./nodes/conditionalNode"
+import {approvalNode} from "./nodes/approvalNode"
 import { NodeType, workflowNode, WorkflowContext} from "./types"
 
 type NodeHandler = (
@@ -18,5 +19,6 @@ export const nodeRegistry: Partial<Record<NodeType, NodeHandler>> = {
   "multiply.node": multiplyNode,
   "constant.node": constantNode,
   "testfail.node": testFailNode,
-  "conditional.node": conditionalNode
+  "conditional.node": conditionalNode,
+  "approval.node": approvalNode
 }
