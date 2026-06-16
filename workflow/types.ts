@@ -37,12 +37,14 @@ export type NodeType =
   | "constant.node"
   | "testfail.node"
   | "conditional.node"
+  | "approval.node" 
 
 
   export type NodeResult<T =  any> = {
     nodeId: string
     success: boolean
-    output?: T
+    waitingForInput?: boolean,
+    output?: T,
     error?: string
     meta?: {
       startedAt: number
@@ -52,16 +54,17 @@ export type NodeType =
 
 
 export type WorkflowContext = {
-  status: "success" | "failed" | "partial" | "started"
+  status: "success" | "failed" | "partial" | "started" | "paused" | "running"
   results: Record<string, NodeResult>,
   executions: Record<string, NodeExecution>,
+  pausedNodeId: string,
   startedAt: number,
   finishedAt: number,
   durationMs: number
 }
 
 export interface NodeExecution {
-  status: "pending" | "running" | "success" | "failed" | "skipped"
+  status: "pending" | "running" | "success" | "failed" | "skipped" | "paused"
   startedAt?: number,
   finishedAt?: number,
   error?: string
